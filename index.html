@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Hukuk Hesap</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --bg: var(--tg-theme-bg-color, #ffffff);
+    --fg: var(--tg-theme-text-color, #1c1c1e);
+    --ipucu: var(--tg-theme-hint-color, #8e8e93);
+    --alan: var(--tg-theme-secondary-bg-color, #f2f2f7);
+    --vurgu: var(--tg-theme-button-color, #2481cc);
+    --vurgu-yazi: var(--tg-theme-button-text-color, #ffffff);
+    --hata: #d93025;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-tg]) { --bg: #1c1c1e; --fg: #f2f2f7; --alan: #2c2c2e; --ipucu: #98989f; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px 16px 96px; background: var(--bg); color: var(--fg);
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  h1 { font-size: 20px; margin: 0 0 12px; }
+  .alan { margin: 0 0 14px; }
+  .alan[hidden] { display: none; }
+  label { display: block; font-size: 13px; color: var(--ipucu); margin: 0 0 6px; }
+  input, select {
+    width: 100%; font: inherit; color: var(--fg); background: var(--alan);
+    border: 1px solid transparent; border-radius: 10px; padding: 12px; min-height: 46px;
+    -webkit-appearance: none; appearance: none;
+  }
+  select { background-image: linear-gradient(45deg, transparent 50%, var(--ipucu) 50%),
+           linear-gradient(135deg, var(--ipucu) 50%, transparent 50%);
+           background-position: calc(100% - 18px) 50%, calc(100% - 12px) 50%;
+           background-size: 6px 6px; background-repeat: no-repeat; padding-right: 32px; }
+  input:focus, select:focus { outline: none; border-color: var(--vurgu); }
+  .hatali input, .hatali select { border-color: var(--hata); }
+  .not { font-size: 12px; color: var(--ipucu); margin-top: 4px; }
+  .hata-yazi { font-size: 13px; color: var(--hata); margin-top: 4px; }
+  #gonder {
+    width: 100%; border: 0; border-radius: 10px; padding: 14px; font: inherit; font-weight: 600;
+    background: var(--vurgu); color: var(--vurgu-yazi); margin-top: 8px;
+  }
+  #onizleme { white-space: pre-wrap; word-break: break-all; font-size: 12px;
+              background: var(--alan); padding: 12px; border-radius: 10px; margin-top: 16px; }
+  #onizleme:empty { display: none; }
+</style>
+</head>
+<body>
+<h1>⚖️ Hukuk Hesap</h1>
+
+<form id="form" novalidate>
+  <div class="alan" data-a="hesap">
+    <label for="hesap">Hesap türü</label>
+    <select id="hesap">
+      <option value="dosya">📁 Dosya hesabı (alacak + faiz + vekalet + harç)</option>
+      <option value="alacak">💰 Alacak faizi</option>
+      <option value="vekalet">👔 Vekalet ücreti</option>
+      <option value="harc">🏛 Harç</option>
+      <option value="kira">📈 Kira artışı</option>
+      <option value="kiraseyri">🗓 Kira seyri</option>
+    </select>
+  </div>
+
+  <div class="alan" data-a="dosya">
+    <label for="dosya">Dosya türü</label>
+    <select id="dosya"><option value="icra">İcra takibi</option><option value="dava">Dava</option></select>
+  </div>
+
+  <div class="alan" data-a="tur_vek">
+    <label for="tur_vek">İşin türü</label>
+    <select id="tur_vek">
+      <option value="dava">Dava</option><option value="tahliye">Tahliye davası</option>
+      <option value="tespit">Kira tespit davası</option><option value="icra">İcra takibi</option>
+      <option value="icramahkemesi">İcra mahkemesi</option>
+    </select>
+  </div>
+
+  <div class="alan" data-a="tur_harc">
+    <label for="tur_harc">Harç türü</label>
+    <select id="tur_harc">
+      <option value="dava">Dava</option><option value="icra">İcra takibi</option>
+      <option value="icramahkemesi">İcra mahkemesi</option>
+      <option value="tahliye">Tahliye davası</option><option value="tespit">Kira tespit davası</option>
+    </select>
+  </div>
+
+  <div class="alan" data-a="tur_kira">
+    <label for="tur_kira">Kira türü</label>
+    <select id="tur_kira"><option value="konut">Konut</option><option value="isyeri">Çatılı işyeri</option></select>
+  </div>
+
+  <div class="alan" data-a="faiz">
+    <label for="faiz">Faiz türü</label>
+    <select id="faiz">
+      <option value="yasal">Yasal</option><option value="ticari">Ticari (yarıyıl)</option>
+      <option value="avans">Avans (TCMB tarihleri)</option><option value="sozlesme">Sözleşme oranı</option>
+      <option value="faizsiz">Faizsiz</option>
+    </select>
+  </div>
+
+  <div class="alan" data-a="oran">
+    <label for="oran">Yıllık sözleşme faiz oranı (%)</label>
+    <input id="oran" type="text" inputmode="decimal" placeholder="ör. 24" autocomplete="off">
+  </div>
+
+  <div class="alan" data-a="mahkeme">
+    <label for="mahkeme">Mahkeme</label>
+    <select id="mahkeme">
+      <option value="asliye">Asliye hukuk</option><option value="sulh">Sulh hukuk</option>
+      <option value="ticaret">Asliye ticaret</option><option value="is">İş</option>
+      <option value="tuketici">Tüketici</option><option value="aile">Aile</option>
+    </select>
+  </div>
+
+  <div class="alan" data-a="mahkeme_harc">
+    <label for="mahkeme_harc">Mahkeme</label>
+    <select id="mahkeme_harc">
+      <option value="asliye">Asliye (ticaret, iş, tüketici, aile dahil)</option><option value="sulh">Sulh</option>
+    </select>
+  </div>
+
+  <div class="alan" data-a="icramah">
+    <label for="icramah">İcra mahkemesindeki iş</label>
+    <select id="icramah">
+      <option value="durusmasiz">Duruşmasız (itirazın kaldırılması, şikâyet…)</option>
+      <option value="durusmali">Dava / duruşmalı iş</option><option value="istihkak">İstihkak davası</option>
+    </select>
+  </div>
+
+  <div class="alan" data-a="ilam">
+    <label for="ilam">Takip türü</label>
+    <select id="ilam"><option value="ilamsiz">İlamsız</option><option value="ilamli">İlamlı</option></select>
+  </div>
+
+  <div class="alan" data-a="tutar">
+    <label for="tutar" id="tutar_etiket">Tutar (TL)</label>
+    <input id="tutar" type="text" inputmode="decimal" placeholder="ör. 100.000" autocomplete="off">
+  </div>
+
+  <div class="alan" data-a="bas">
+    <label for="bas" id="bas_etiket">Başlangıç tarihi</label>
+    <input id="bas" type="date">
+  </div>
+
+  <div class="alan" data-a="tarih">
+    <label for="tarih" id="tarih_etiket">Hesap tarihi</label>
+    <input id="tarih" type="date">
+    <div class="not">Boş bırakılırsa bugün.</div>
+  </div>
+
+  <div class="alan" data-a="ay">
+    <label for="ay">Yenileme ayı</label>
+    <input id="ay" type="month">
+  </div>
+
+  <button type="submit" id="gonder">Hesapla</button>
+</form>
+<div id="onizleme"></div>
+
+<script>
+(function () {
+  "use strict";
+  var tg = window.Telegram && window.Telegram.WebApp;
+  var telegramda = !!(tg && tg.initData);
+  if (tg) { tg.ready(); tg.expand(); }
+  if (telegramda) document.documentElement.setAttribute("data-tg", "1");
+
+  var $ = function (id) { return document.getElementById(id); };
+  var bugun = new Date();
+  var iso = function (d) { return d.toISOString().slice(0, 10); };
+  $("tarih").value = iso(new Date(bugun.getTime() - bugun.getTimezoneOffset() * 60000));
+
+  var TUTAR_ETIKET = {
+    dosya: "Asıl alacak tutarı (TL)", alacak: "Alacak tutarı (TL)",
+    kira: "Mevcut aylık kira (TL)", kiraseyri: "İlk aylık kira (TL)",
+    dava: "Dava değeri (TL)", tahliye: "Aylık kira bedeli (TL)",
+    tespit: "Aylık kira FARKI (yeni − eski, TL)", icra: "Takip tutarı (TL)",
+    icramahkemesi: "İşin değeri (TL)"
+  };
+
+  // Hangi hesapta hangi alanlar görünür — bot tarafındaki form.py ile aynı kurallar
+  function gerekli() {
+    var h = $("hesap").value, f = $("faiz").value;
+    var tv = $("tur_vek").value, th = $("tur_harc").value;
+    var liste = {
+      dosya: ["dosya", "faiz", f === "sozlesme" && "oran", $("dosya").value === "dava" && "mahkeme",
+              "tutar", f !== "faizsiz" && "bas", "tarih"],
+      alacak: ["faiz", f === "sozlesme" && "oran", "tutar", "bas", "tarih"],
+      kira: ["tutar", "ay"],
+      kiraseyri: ["tur_kira", "tutar", "bas", "tarih"],
+      vekalet: ["tur_vek", tv === "dava" && "mahkeme", tv === "icramahkemesi" && "icramah", "tutar"],
+      harc: ["tur_harc", th === "dava" && "mahkeme_harc", th === "icra" && "ilam",
+             th !== "icramahkemesi" && "tutar"]
+    }[h];
+    return ["hesap"].concat(liste.filter(Boolean));
+  }
+
+  function guncelle() {
+    var h = $("hesap").value, g = gerekli();
+    // alacak akışında "faizsiz" seçeneği yok
+    $("faiz").querySelector('option[value="faizsiz"]').hidden = (h !== "dosya");
+    if (h !== "dosya" && $("faiz").value === "faizsiz") $("faiz").value = "yasal";
+    // mahkeme listesinde "aile" yalnız dosya hesabında (vekalette ayrı satırı yok)
+    $("mahkeme").querySelector('option[value="aile"]').hidden = (h !== "dosya");
+    if (h !== "dosya" && $("mahkeme").value === "aile") $("mahkeme").value = "asliye";
+    g = gerekli();
+    document.querySelectorAll(".alan").forEach(function (el) {
+      el.hidden = g.indexOf(el.getAttribute("data-a")) < 0;
+      el.classList.remove("hatali");
+      var e = el.querySelector(".hata-yazi"); if (e) e.remove();
+    });
+    var anahtar = h === "vekalet" ? $("tur_vek").value : h === "harc" ? $("tur_harc").value : h;
+    $("tutar_etiket").textContent = TUTAR_ETIKET[anahtar];
+    $("bas_etiket").textContent = h === "kiraseyri" ? "Kira başlangıç tarihi" : "Faiz başlangıç (temerrüt) tarihi";
+    $("tarih_etiket").textContent = h === "alacak" ? "Faiz bitiş tarihi"
+      : h === "kiraseyri" ? "Hangi tarihe kadar"
+      : ($("dosya").value === "icra" ? "Takip tarihi" : "Dava tarihi");
+  }
+
+  function hataGoster(alan, mesaj) {
+    var el = document.querySelector('.alan[data-a="' + alan + '"]');
+    el.classList.add("hatali");
+    var d = document.createElement("div"); d.className = "hata-yazi"; d.textContent = mesaj;
+    el.appendChild(d);
+  }
+
+  var SAYI = /^%?\s*\d{1,3}(\.\d{3})*(,\d+)?\s*%?$|^%?\s*\d+([.,]\d+)?\s*%?$/;
+
+  function topla() {
+    guncelle();
+    var g = gerekli(), v = { v: 1, hesap: $("hesap").value }, tamam = true;
+    var ad = { tur_vek: "tur", tur_harc: "tur", tur_kira: "tur", mahkeme_harc: "mahkeme" };
+    g.forEach(function (a) {
+      if (a === "hesap") return;
+      var deger = ($(a).value || "").trim();
+      if ((a === "tutar" || a === "oran") && !SAYI.test(deger)) {
+        hataGoster(a, deger ? "Sayı olarak yazın (ör. 100.000)." : "Bu alan boş bırakılamaz.");
+        tamam = false; return;
+      }
+      if ((a === "bas" || a === "ay") && !deger) { hataGoster(a, "Bu alan boş bırakılamaz."); tamam = false; return; }
+      v[ad[a] || a] = deger;
+    });
+    if (tamam && v.bas && v.tarih && v.tarih <= v.bas) {
+      hataGoster("tarih", "Bu tarih başlangıç tarihinden sonra olmalı."); tamam = false;
+    }
+    return tamam ? v : null;
+  }
+
+  function gonder(e) {
+    if (e) e.preventDefault();
+    var v = topla();
+    if (!v) { if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("error"); return; }
+    var veri = JSON.stringify(v);
+    if (telegramda) { tg.sendData(veri); }
+    else { $("onizleme").textContent = "Önizleme (Telegram dışında gönderilmez):\n" + veri; }
+  }
+
+  ["hesap", "dosya", "faiz", "tur_vek", "tur_harc"].forEach(function (id) {
+    $(id).addEventListener("change", guncelle);
+  });
+  $("form").addEventListener("submit", gonder);
+  if (telegramda) {
+    $("gonder").hidden = true;
+    tg.MainButton.setText("Hesapla");
+    tg.MainButton.show();
+    tg.MainButton.onClick(gonder);
+  }
+  var q = new URLSearchParams(location.search).get("h");
+  if (q && $("hesap").querySelector('option[value="' + q + '"]')) $("hesap").value = q;
+  guncelle();
+})();
+</script>
+</body>
+</html>
