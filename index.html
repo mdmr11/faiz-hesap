@@ -184,7 +184,9 @@
 (function () {
   "use strict";
   var tg = window.Telegram && window.Telegram.WebApp;
-  var telegramda = !!(tg && tg.initData);
+  // Klavye düğmesinden açılan Mini App'te initData BOŞ gelir (15.11 canlı hata) ⇒
+  // Telegram içinde olmayı platformdan anla: telegram-web-app.js dışarıda "unknown" verir.
+  var telegramda = !!(tg && ((tg.platform && tg.platform !== "unknown") || tg.initData));
   if (tg) { tg.ready(); tg.expand(); }
   if (telegramda) document.documentElement.setAttribute("data-tg", "1");
 
