@@ -44,6 +44,13 @@
     width: 100%; border: 0; border-radius: 10px; padding: 14px; font: inherit; font-weight: 600;
     background: var(--vurgu); color: var(--vurgu-yazi); margin-top: 8px;
   }
+  .tarih-kutu { display: flex; gap: 8px; }
+  .tarih-kutu input[type=text] { flex: 1 1 auto; min-width: 0; }
+  .takvim { position: relative; flex: 0 0 46px; min-height: 46px; border-radius: 10px;
+            background: var(--alan); display: flex; align-items: center; justify-content: center;
+            font-size: 20px; }
+  .takvim input[type=date] { position: absolute; inset: 0; width: 100%; height: 100%;
+                             min-height: 0; padding: 0; opacity: 0; }
   #onizleme { white-space: pre-wrap; word-break: break-all; font-size: 12px;
               background: var(--alan); padding: 12px; border-radius: 10px; margin-top: 16px; }
   #onizleme:empty { display: none; }
@@ -58,7 +65,7 @@
     <select id="hesap">
       <option value="dosya">📁 Dosya hesabı (alacak + faiz + vekalet + harç)</option>
       <option value="alacak">💰 Alacak faizi</option>
-      <option value="vekalet">👔 Vekalet ücreti</option>
+      <option value="vekalet">👔 Vekalet + harç + gider</option>
       <option value="harc">🏛 Harç</option>
       <option value="kira">📈 Kira artışı</option>
       <option value="kiraseyri">🗓 Kira seyri</option>
@@ -141,15 +148,27 @@
     <input id="tutar" type="text" inputmode="decimal" placeholder="ör. 100.000" autocomplete="off">
   </div>
 
+  <div class="alan" data-a="taraf">
+    <label for="taraf">Taraf sayısı (davacı + davalı)</label>
+    <input id="taraf" type="text" inputmode="numeric" value="2" maxlength="3" autocomplete="off">
+    <div class="not">Gider avansı hesabı için; çoğu davada 2.</div>
+  </div>
+
   <div class="alan" data-a="bas">
     <label for="bas" id="bas_etiket">Başlangıç tarihi</label>
-    <input id="bas" type="date">
+    <div class="tarih-kutu">
+      <input id="bas" type="text" inputmode="numeric" placeholder="GG.AA.YYYY" maxlength="10" autocomplete="off">
+      <span class="takvim" aria-hidden="true">📅<input type="date" class="takvim-sec" data-hedef="bas" tabindex="-1"></span>
+    </div>
   </div>
 
   <div class="alan" data-a="tarih">
     <label for="tarih" id="tarih_etiket">Hesap tarihi</label>
-    <input id="tarih" type="date">
-    <div class="not">Boş bırakılırsa bugün.</div>
+    <div class="tarih-kutu">
+      <input id="tarih" type="text" inputmode="numeric" placeholder="Boş = hesaplama günü" maxlength="10" autocomplete="off">
+      <span class="takvim" aria-hidden="true">📅<input type="date" class="takvim-sec" data-hedef="tarih" tabindex="-1"></span>
+    </div>
+    <div class="not">Boş bırakılırsa hesaplamanın yapıldığı gün kullanılır.</div>
   </div>
 
   <div class="alan" data-a="ay">
@@ -170,9 +189,34 @@
   if (telegramda) document.documentElement.setAttribute("data-tg", "1");
 
   var $ = function (id) { return document.getElementById(id); };
-  var bugun = new Date();
-  var iso = function (d) { return d.toISOString().slice(0, 10); };
-  $("tarih").value = iso(new Date(bugun.getTime() - bugun.getTimezoneOffset() * 60000));
+
+  // --- tarih: elle GG.AA.YYYY (noktalar kendiliğinden) veya 📅 takvimden ---
+  function tarihBicimle(el) {
+    var r = el.value.replace(/\D/g, "").slice(0, 8);
+    el.value = r.length > 4 ? r.slice(0, 2) + "." + r.slice(2, 4) + "." + r.slice(4)
+             : r.length > 2 ? r.slice(0, 2) + "." + r.slice(2) : r;
+  }
+  // "1.3.2026", "01/03/2026", "01032026" → Date (geçersizse null)
+  function tarihOku(s) {
+    s = (s || "").trim();
+    var m = /^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/.exec(s) || /^(\d{2})(\d{2})(\d{4})$/.exec(s);
+    if (!m) return null;
+    var g = +m[1], a = +m[2], y = +m[3], d = new Date(y, a - 1, g);
+    return (d.getFullYear() === y && d.getMonth() === a - 1 && d.getDate() === g) ? d : null;
+  }
+  var iki = function (n) { return (n < 10 ? "0" : "") + n; };
+  var ggaayyyy = function (d) { return iki(d.getDate()) + "." + iki(d.getMonth() + 1) + "." + d.getFullYear(); };
+  ["bas", "tarih"].forEach(function (id) {
+    $(id).addEventListener("input", function () { tarihBicimle($(id)); });
+  });
+  document.querySelectorAll(".takvim-sec").forEach(function (sec) {
+    sec.addEventListener("change", function () {
+      if (!sec.value) return;
+      var p = sec.value.split("-");                    // YYYY-MM-DD
+      $(sec.getAttribute("data-hedef")).value = p[2] + "." + p[1] + "." + p[0];
+    });
+  });
+  $("tarih").placeholder = "Boş = hesaplama günü (" + ggaayyyy(new Date()) + ")";
 
   var TUTAR_ETIKET = {
     dosya: "Asıl alacak tutarı (TL)", alacak: "Alacak tutarı (TL)",
@@ -188,11 +232,12 @@
     var tv = $("tur_vek").value, th = $("tur_harc").value;
     var liste = {
       dosya: ["dosya", "faiz", f === "sozlesme" && "oran", $("dosya").value === "dava" && "mahkeme",
-              "tutar", f !== "faizsiz" && "bas", "tarih"],
+              "tutar", f !== "faizsiz" && "bas", "tarih", $("dosya").value === "dava" && "taraf"],
       alacak: ["faiz", f === "sozlesme" && "oran", "tutar", "bas", "tarih"],
       kira: ["tutar", "ay"],
       kiraseyri: ["tur_kira", "tutar", "bas", "tarih"],
-      vekalet: ["tur_vek", tv === "dava" && "mahkeme", tv === "icramahkemesi" && "icramah", "tutar"],
+      vekalet: ["tur_vek", tv === "dava" && "mahkeme", tv === "icramahkemesi" && "icramah",
+                tv === "icra" && "ilam", "tutar", tv !== "icra" && "taraf"],
       harc: ["tur_harc", th === "dava" && "mahkeme_harc", th === "icra" && "ilam",
              th !== "icramahkemesi" && "tutar"]
     }[h];
@@ -242,9 +287,17 @@
         tamam = false; return;
       }
       if ((a === "bas" || a === "ay") && !deger) { hataGoster(a, "Bu alan boş bırakılamaz."); tamam = false; return; }
+      if ((a === "bas" || a === "tarih") && deger) {
+        var t = tarihOku(deger);
+        if (!t) { hataGoster(a, "Tarihi GG.AA.YYYY biçiminde yazın (ör. 01.03.2026)."); tamam = false; return; }
+        deger = ggaayyyy(t);
+      }
+      if (a === "taraf" && !(/^\d{1,3}$/.test(deger) && +deger >= 2 && +deger <= 100)) {
+        hataGoster(a, "2 ile 100 arasında bir sayı yazın."); tamam = false; return;
+      }
       v[ad[a] || a] = deger;
     });
-    if (tamam && v.bas && v.tarih && v.tarih <= v.bas) {
+    if (tamam && v.bas && v.tarih && tarihOku(v.tarih) <= tarihOku(v.bas)) {
       hataGoster("tarih", "Bu tarih başlangıç tarihinden sonra olmalı."); tamam = false;
     }
     return tamam ? v : null;
