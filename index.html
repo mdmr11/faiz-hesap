@@ -179,14 +179,24 @@
   <button type="submit" id="gonder">Hesapla</button>
 </form>
 <div id="onizleme"></div>
+<div id="surum" class="not" style="text-align:center;margin-top:24px"></div>
 
 <script>
 (function () {
   "use strict";
+  var SURUM = "2026-11-15.2";
   var tg = window.Telegram && window.Telegram.WebApp;
   // Klavye düğmesinden açılan Mini App'te initData BOŞ gelir (15.11 canlı hata) ⇒
-  // Telegram içinde olmayı platformdan anla: telegram-web-app.js dışarıda "unknown" verir.
-  var telegramda = !!(tg && ((tg.platform && tg.platform !== "unknown") || tg.initData));
+  // Telegram içinde olmayı birden çok işaretten anla:
+  //  • platform (telegram-web-app.js dışarıda "unknown" verir)
+  //  • iOS/Android'de Telegram'ın enjekte ettiği köprü (sendData bu köprüden gider)
+  //  • masaüstü istemcide window.external.invoke
+  var kopru = !!(window.TelegramWebviewProxy ||
+                 (window.external && typeof window.external.invoke !== "undefined"));
+  var platform = tg && tg.platform ? tg.platform : "yok";
+  var telegramda = !!(tg && (kopru || (platform !== "unknown" && platform !== "yok") || tg.initData));
+  var TANI = "sürüm " + SURUM + " · platform " + platform + " · köprü " + (kopru ? "var" : "yok") +
+             " · tg " + (tg ? "var" : "yok") + " · initData " + (tg && tg.initData ? "dolu" : "boş");
   if (tg) { tg.ready(); tg.expand(); }
   if (telegramda) document.documentElement.setAttribute("data-tg", "1");
 
@@ -311,7 +321,8 @@
     if (!v) { if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("error"); return; }
     var veri = JSON.stringify(v);
     if (telegramda) { tg.sendData(veri); }
-    else { $("onizleme").textContent = "Önizleme (Telegram dışında gönderilmez):\n" + veri; }
+    else { $("onizleme").textContent = "Önizleme (Telegram dışında gönderilmez):\n" + veri +
+                                       "\n\nTanı: " + TANI; }
   }
 
   ["hesap", "dosya", "faiz", "tur_vek", "tur_harc"].forEach(function (id) {
@@ -324,6 +335,7 @@
     tg.MainButton.show();
     tg.MainButton.onClick(gonder);
   }
+  $("surum").textContent = "Form sürümü " + SURUM + (telegramda ? " · Telegram ✓" : " · Telegram dışı");
   var q = new URLSearchParams(location.search).get("h");
   if (q && $("hesap").querySelector('option[value="' + q + '"]')) $("hesap").value = q;
   guncelle();
